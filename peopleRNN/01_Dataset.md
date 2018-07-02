@@ -26,4 +26,4 @@ peopleDfSumType1.loc[peopleDfSumType1['type1'] == 'lunch']
 ```
 
 
-![Alt text](/people_count.png)
+![점심에 대한 people count plot](./people_count.png)
