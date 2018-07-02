@@ -7,10 +7,23 @@
 따라서 일단은 식단은 제외하고 날짜와 식수인원 데이터를 가져와보자. 데이터를 가져오면 `날짜`, `식사종류`, `식수인원` 이렇게 세개의 칼럼으로 이루어져있다. 여기서, `식사종류`의 경우 아침식사1, 아침식사2 이런식으로 구성되어있기 때문에 정리를 해줄 필요가 있다. 새로운 칼럼인 `type1`을 만들어서 1, 2에 상관없이 morning, lunch, dinner로 정리한다.
 
 ```
-date	type	values	type2	type1
+date        	type	    values  	type2	  type1
 1	2003-03-01	아침식사	37.472924	morning	morning
 2	2003-03-01	점심식사	31.191336	lunch_kor	lunch
 3	2003-03-01	저녁식사	19.566787	dinner	dinner
 4	2003-03-02	아침식사	36.101083	morning	morning
 5	2003-03-02	점심식사	33.357401	lunch_kor	lunch
 ```
+
+이렇게 만들면 점심식사1, 점식식사2가 모두 lunch로 정리된 `type1` 칼럼이 생긴다. 이제 해볼건 같은 `date`의 같은 `type1`을 가지면 그 value(식수인원)를 합쳐주어야 한다. 갓 pandas님의 기능을 활용한다. `groupby` 사용. sum을 통해서 `values`를 합쳐준다. 여기까지만 하면 index가 `date`인데, 편의를 위해서 reset_index를 해준다. (근데사실 나중에 `date`를 다시 index로 만들어줄때가 있다. 그때는 set_index('date')사용)
+
+```python
+peopleDfSumType1 = peopleDfRaw.groupby(['date', 'type1']).sum().reset_index()
+
+# 점심에 해당하는 데이터만 추출
+peopleDfSumType1.loc[peopleDfSumType1['type1'] == 'lunch']
+
+```
+
+
+![Alt text](/people_count.png)
