@@ -88,9 +88,9 @@ class RNNmodel:
     ## Classifier
     def clf(self, x):
         with tf.variable_scope('clf'):
-            h = self.rnn_layer(x, 50, 'rnn')
+            h = self.rnn_layer(x, 100, 'rnn')
             pred = self.rnn_fc_layer(h, 'pred', 
-                                      n_in = 50,
+                                      n_in = 100,
                                       n_out = self.n_output)
         return pred
         ## Compute loss
