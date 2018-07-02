@@ -121,7 +121,7 @@ class RNNmodel:
         forward_h = tf.unstack(input_tensor, axis=1)
         with tf.variable_scope(name+"relu"):
             weights = tf.get_variable('weights', [n_in, n_in], tf.float32, xavier_initializer())
-            bias = tf.get_variable('bias', [n_out], tf.float32, tf.constant_initializer(0.0))
+            bias = tf.get_variable('bias', [n_in], tf.float32, tf.constant_initializer(0.0))
             hidden1 = tf.nn.relu(tf.matmul(forward_h[-1], weights) + bias)
         with tf.variable_scope(name+"output"):
             weights = tf.get_variable('weights', [n_in, n_out], tf.float32, xavier_initializer())
