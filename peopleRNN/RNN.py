@@ -31,7 +31,7 @@ class RNNmodel:
         self.n_save = config['n_save']
         self.n_history = config['n_history']
         self.LR = config['LR']
-        
+        self.intervalDay = config['intervalDay']
         self.history = {
             'train' : [],
             'test' : []
@@ -70,7 +70,7 @@ class RNNmodel:
             
             # Optimize                           
             self.loss = tf.reduce_sum(each_loss)
-            self.LR_decay = tf.train.exponential_decay(self.LR, tf.Variable(0, trainable=False), 250, 0.95, staircase=True)
+            self.LR_decay = tf.train.exponential_decay(self.LR, tf.Variable(0, trainable=False), 500, 0.95, staircase=True)
             self.optm = tf.train.AdamOptimizer(learning_rate=self.LR_decay).minimize(self.loss)
             
             # 학습 될 weight의 값을 초기화
@@ -91,7 +91,8 @@ class RNNmodel:
             h = self.rnn_layer(x, 100, 'rnn')
             pred = self.rnn_fc_layer(h, 'pred', 
                                       n_in = 100,
-                                      n_out = self.n_output)
+                                      n_out = self.n_output) # values_sum은 아래처럼 합쳐서 예측
+            #pred = tf.concat((pred, tf.reduce_sum(pred, axis=1, keepdims=True)), 1)
         return pred
         ## Compute loss
     def compute_loss(self, pred, y):
@@ -119,10 +120,11 @@ class RNNmodel:
 
     def rnn_fc_layer(self, input_tensor, name, n_in, n_out):
         forward_h = tf.unstack(input_tensor, axis=1)
+        input_sum = forward_h[-1]
         with tf.variable_scope(name+"relu"):
             weights = tf.get_variable('weights', [n_in, n_in], tf.float32, xavier_initializer())
             bias = tf.get_variable('bias', [n_in], tf.float32, tf.constant_initializer(0.0))
-            hidden1 = tf.nn.relu(tf.matmul(forward_h[-1], weights) + bias)
+            hidden1 = tf.nn.relu(tf.matmul(input_sum, weights) + bias)
         with tf.variable_scope(name+"output"):
             weights = tf.get_variable('weights', [n_in, n_out], tf.float32, xavier_initializer())
             bias = tf.get_variable('bias', [n_out], tf.float32, tf.constant_initializer(0.0))
@@ -132,27 +134,46 @@ class RNNmodel:
 
     
     ## Train
-    def fit(self, data, label):
-        self.data = BatchMakerClass(data, label, self.config)
+    def fit(self, TrainData, TrainLabel, ValidData, ValidLabel):
+        self.TrainBM = BatchMakerClass(TrainData, TrainLabel, self.config)
+        self.ValidBM = BatchMakerClass(ValidData, ValidLabel, self.config)
+        self.train_history = []
+        self.valid_history = []
         for _iter in range(1, self.n_iter+1):
-            train_x, train_y  = self.data.train.next_batch(self.n_batch)
+            train_x, train_y  = self.TrainBM.train.next_batch(self.n_batch)
             train_seq_len = self.length(train_x)
-            self.sess.run(self.optm, feed_dict={self.x : train_x, self.y : train_y, self.seq_len : train_seq_len})
             
             if _iter % self.n_prt == 0:
-                train_loss = self.get_loss(train_x, train_y)
-                print('Your loss ({0}/{1}) : {2}'.format(_iter, self.n_iter, train_loss))
+                valid_x, valid_y  = self.ValidBM.train.next_batch(self.n_batch)
+                valid_seq_len = self.length(valid_x)
+                train_x_pred = train_x.copy()
+                valid_x_pred = valid_x.copy()
+                for i in range(3):
+                    train_loss = self.get_loss(train_x_pred[:, i:i+self.intervalDay, :], train_y[:, i, :])
+                    valid_loss = self.get_loss(valid_x_pred[:, i:i+self.intervalDay, :], valid_y[:, i, :])
+                    if i!= 2:
+                        train_x_pred[:, i+1+self.intervalDay, 1:self.n_input-1] = self.predict(train_x_pred[:, i:i+self.intervalDay, :])
+                        valid_x_pred[:, i+1+self.intervalDay, 1:self.n_input-1] = self.predict(valid_x_pred[:, i:i+self.intervalDay, :])
+                self.train_history.append(train_loss)
+                self.valid_history.append(valid_loss)
+                print('Your Train loss ({0}/{1}) : {2}'.format(_iter, self.n_iter, train_loss))
+                print('Your Valid loss ({0}/{1}) : {2}'.format(_iter, self.n_iter, valid_loss))
                 
+                
+            train_x_pred = train_x.copy()
+            for i in range(3):         
+                self.sess.run(self.optm, feed_dict={self.x : train_x_pred[:, i:i+self.intervalDay, :], self.y : train_y[:, i, :], self.seq_len : train_seq_len})
+                if i!= 2:
+                    train_x_pred[:, i+1+self.intervalDay, 1:self.n_input-1] = self.predict(train_x_pred[:, i:i+self.intervalDay, :])
+            
             if _iter % self.n_save == 0:
                 self.checkpoint += self.n_save
                 self.save('{0}/{1}/{2}_{3}'.format(self.path, 'checkpoint', self.rnn_ID, self.checkpoint))
-            
-            if _iter % self.n_history == 0:
-                train_loss = self.get_loss(train_x, train_y)
-                self.history['train'].append(train_loss)
+                
+        
             sys.stdout.write('\r'+str(_iter)+'/'+str(self.n_iter+1))
        
-    
+   
     ## Analysis : 학습이후 분석을위한 함수들
     def predict(self, x):
         result = self.sess.run(self.pred, feed_dict={self.x : x, self.seq_len : self.length(x)})
