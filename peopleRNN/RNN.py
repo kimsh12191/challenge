@@ -109,11 +109,11 @@ class RNNmodel:
         shape : (batchsize , n_step, n_input)
         '''
         with tf.variable_scope(name+'first'):
-            lstm_cell1 = tf.contrib.rnn.BasicLSTMCell(n_hidden, forget_bias=1.0)
+            lstm_cell1 = tf.contrib.rnn.BasicLSTMCell(n_hidden, forget_bias=7.0)
             h1, _ = tf.nn.dynamic_rnn(lstm_cell1, x, dtype=tf.float32,
                                                           sequence_length=self.seq_len)
         with tf.variable_scope(name+'second'):
-            lstm_cell2 = tf.contrib.rnn.BasicLSTMCell(n_hidden, forget_bias=1.0)
+            lstm_cell2 = tf.contrib.rnn.BasicLSTMCell(n_hidden, forget_bias=7.0)
             output_h, _ = tf.nn.dynamic_rnn(lstm_cell2, h1, dtype=tf.float32,
                                                           sequence_length=self.seq_len)
             return output_h
@@ -152,8 +152,8 @@ class RNNmodel:
                     train_loss = self.get_loss(train_x_pred[:, i:i+self.intervalDay, :], train_y[:, i, :])
                     valid_loss = self.get_loss(valid_x_pred[:, i:i+self.intervalDay, :], valid_y[:, i, :])
                     if i!= 2:
-                        train_x_pred[:, i+1+self.intervalDay, 1:self.n_input-1] = self.predict(train_x_pred[:, i:i+self.intervalDay, :])
-                        valid_x_pred[:, i+1+self.intervalDay, 1:self.n_input-1] = self.predict(valid_x_pred[:, i:i+self.intervalDay, :])
+                        train_x_pred[:, i+1+self.intervalDay, 1:self.n_output+1] = self.predict(train_x_pred[:, i:i+self.intervalDay, :])
+                        valid_x_pred[:, i+1+self.intervalDay, 1:self.n_output+1] = self.predict(valid_x_pred[:, i:i+self.intervalDay, :])
                 self.train_history.append(train_loss)
                 self.valid_history.append(valid_loss)
                 print('Your Train loss ({0}/{1}) : {2}'.format(_iter, self.n_iter, train_loss))
@@ -164,7 +164,7 @@ class RNNmodel:
             for i in range(3):         
                 self.sess.run(self.optm, feed_dict={self.x : train_x_pred[:, i:i+self.intervalDay, :], self.y : train_y[:, i, :], self.seq_len : train_seq_len})
                 if i!= 2:
-                    train_x_pred[:, i+1+self.intervalDay, 1:self.n_input-1] = self.predict(train_x_pred[:, i:i+self.intervalDay, :])
+                    train_x_pred[:, i+1+self.intervalDay, 1:self.n_output+1] = self.predict(train_x_pred[:, i:i+self.intervalDay, :])
             
             if _iter % self.n_save == 0:
                 self.checkpoint += self.n_save
